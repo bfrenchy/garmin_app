@@ -1,0 +1,3 @@
+[submodule "sifter_support_shared"]
+	path = sifter_support_shared
+	url = https://github.com/bfrenchy/sifter_support_shared
