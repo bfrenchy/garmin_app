@@ -49,3 +49,13 @@ Here are some commands for managing and using branches:
 * `git branch -d <branch_name>`: Delete a branch.
 * `git push origin <branch_name>`: Push a branch to the remote repository.
 * `git pull origin <branch_name>`: Pull the latest changes from a specific branch.
+
+## Quick reminders for activating the venv
+
+* `python3 -m venv env`: Create a new virtual environment.
+* `source venv/bin/activate`: Activate the virtual environment.
+* `deactivate`: Deactivate the virtual environment.
+
+## Updating requirements.txt
+
+* `pip freeze > requirements.txt`
