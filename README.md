@@ -2,6 +2,13 @@
 
 Product support web app for Garmin
 
+## Running .py files as packages
+
+This works if you run `python -m tests.test_app`, but not any other way.
+Supposedly it should work on GitHub too.
+
+* `from sifter_support_shared.functions.doc_loader import load_document`
+
 ## Updating the Submodule on Mac OS
 
 If the submodule is updated, you can fetch the changes and update your local copy with the following commands:
