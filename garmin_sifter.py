@@ -17,8 +17,19 @@ from functions.doc_loader import insert_or_fetch_embeddings
 from functions.q_and_a import ask_with_memory, ask_and_get_answer
 
 
-with open('credentials.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+def load_yaml(file='credentials.yaml'):
+    with open('credentials.yaml') as file:
+        config = yaml.load(file, Loader=SafeLoader)
+    return config
+
+
+config = load_yaml()
+
+
+def update_yaml(file='credentials.yaml'):
+    with open('credentials.yaml', 'w') as file:
+        yaml.dump(config, file, default_flow_style=False)
+
 
 authenticator = stauth.Authenticate(
     config['credentials'],
@@ -92,19 +103,36 @@ def select_and_ask():
                          key='history', height=400)
 
 
+def register_user():
+    "First time? Register below:"
+    try:
+        if authenticator.register_user('New user', preauthorization=True):
+            st.success('User registered successfully')
+            update_yaml()
+    except Exception as e:
+        st.error(e)
+
+
 def login():
     st.image('sifter_support_shared/images/Sifter.png')
+    "Returning visitors can log in with their username and password:"
     name, authentication_status, username = authenticator.login('Login', 'main')
-    if authentication_status:
+    if st.session_state['authentication_status']:
         authenticator.logout('Logout', 'sidebar')
-        st.write(f'Welcome *{name}*')
+        st.write(f'Welcome *{st.session_state["name"]}*')
         load_headers()
         select_and_ask()
-    elif authentication_status == False:
-        # st.image('sifter_support_shared/images/Sifter.png')
+        try:
+            if authenticator.reset_password(st.session_state["username"],
+                                            'Reset password', 'sidebar'):
+                st.success("Password modified successfully")
+        except Exception as e:
+            st.error(e)
+    elif st.session_state['authentication_status'] is False:
+        register_user()
         st.error('Username/password is incorrect')
-    elif authentication_status == None:
-        # st.image('sifter_support_shared/images/Sifter.png')
+    elif st.session_state['authentication_status'] is None:
+        register_user()
         st.warning("Please enter your username/password")
 
 
