@@ -5,12 +5,32 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA, ConversationalRetrievalChain
 import pinecone
 import streamlit as st
+import streamlit_authenticator as stauth
 import pandas as pd
+import yaml
+from yaml.loader import SafeLoader
 
 # Add the sifter_support_shared directory to the system path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'sifter_support_shared'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                'sifter_support_shared'))
 from functions.doc_loader import insert_or_fetch_embeddings
 from functions.q_and_a import ask_with_memory, ask_and_get_answer
+
+
+with open('credentials.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+)
+
+load_dotenv(find_dotenv(), override=True)
+api_key = os.environ['OPENAI_API_KEY']
+index_name = 'garmin'
 
 
 def clear_history():
@@ -18,21 +38,16 @@ def clear_history():
         del st.session_state['history']
 
 
-load_dotenv(find_dotenv(), override=True)
-api_key = os.environ['OPENAI_API_KEY']
-index_name = 'garmin'
-vector_store = insert_or_fetch_embeddings(index_name)
-
-
 def load_headers():
     st.title("Sifter: Intelligent Search Tools")
     ""
-    st.subheader("Test: Garmin wearables")
+    st.subheader("Context: Garmin wearables")
     if 'vs' not in st.session_state:
+        vector_store = insert_or_fetch_embeddings(index_name)
         st.session_state.vs = vector_store
 
 
-def create_selector_dropdown():
+def select_and_ask():
     df = pd.read_csv('data/current_wearables.csv')
     df['product_id'] = df['product_id'].astype(str)
     label = "Select the model you need to ask about:"
@@ -42,6 +57,7 @@ def create_selector_dropdown():
         if option:
             # Add a loading bar here?
             temp_df = df[df['product_name'] == option]
+            product = temp_df['product_name'].values[0]
             st.write("**Currently viewing:**", option)
             st.write('**Category:**', temp_df['product_category'].values[0])
             st.write('**Sub-category:**', temp_df['product_subcategory'].values[0])
@@ -49,15 +65,20 @@ def create_selector_dropdown():
             st.write('**Part Number:**', temp_df['part_number'].values[0])
             st.write('**Listing URL:**', temp_df['product_url'].values[0])
             st.write('**Manual URL:**', temp_df['product_manual_url'].values[0])
-
-
-def allow_input():
+            st.session_state.product = product
+            filter = {'product_name': {'$eq': st.session_state.product}}
+        else:
+            st.write("Please select a product to ask about.")
     q = st.text_input('Ask a question about Garmin wearables:')
     if q:
         if 'vs' in st.session_state:
-            vector_store = st.session_state.vs
-            st.write(f"k: {vector_store}")  # debugging only
-            answer = ask_and_get_answer(vector_store, q)
+            vector_store = insert_or_fetch_embeddings(index_name)
+            # Add a loading bar or something here
+            if 'product' not in st.session_state:
+                st.write("You must select a product from the lefthand side!")
+            else:
+                answer = ask_and_get_answer(vector_store, q,
+                                            filter_args=filter)
             st.text_area("LLM Answer:", value=answer, height=200)
 
             st.divider()
@@ -71,7 +92,23 @@ def allow_input():
                          key='history', height=400)
 
 
+def login():
+    st.image('sifter_support_shared/images/Sifter.png')
+    name, authentication_status, username = authenticator.login('Login', 'main')
+    if authentication_status:
+        authenticator.logout('Logout', 'sidebar')
+        st.write(f'Welcome *{name}*')
+        load_headers()
+        select_and_ask()
+    elif authentication_status == False:
+        # st.image('sifter_support_shared/images/Sifter.png')
+        st.error('Username/password is incorrect')
+    elif authentication_status == None:
+        # st.image('sifter_support_shared/images/Sifter.png')
+        st.warning("Please enter your username/password")
+
+
 if __name__ == "__main__":
-    load_headers()
-    create_selector_dropdown()
-    # allow_input()
+    login()
+    # load_headers()
+    # select_and_ask()
